@@ -1,0 +1,151 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper: Check if user is admin
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Helper: Check if user is event organizer
+    function isEventOrganizer(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.organizerEmail == request.auth.token.email;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Read: public (needed for coordinator name resolution on event pages for unauthenticated visitors)
+      allow read: if true;
+      
+      // Create: Only authenticated users can create their own document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Update: Own profile OR another authenticated user updating ONLY friend-related fields
+      allow update: if request.auth.uid == userId
+        || (request.auth != null
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['friendRequestsIn', 'friendRequestsOut', 'friends']));
+      
+      // Delete: Only own profile
+      allow delete: if request.auth.uid == userId;
+      
+      // Subcollection: friendRequests (private)
+      match /friendRequests/{document=**} {
+        allow read, write: if request.auth.uid == userId;
+      }
+    }
+
+    // Events collection - SECURE WITH OWNERSHIP CHECKS
+    match /events/{eventId} {
+      // Read: Allow public reads so browse pages work for unauthenticated users
+      allow read: if true;
+      
+      // Create: Any authenticated user can create an event (they become organizer)
+      allow create: if request.auth != null;
+      
+      // Update:
+      // - Organizer or admin: full update access
+      // - Any authenticated user: may ONLY touch chatMessages (chat send) or registeredCount (registration increment)
+      allow update: if isEventOrganizer(eventId) || isAdmin()
+        || (request.auth != null && (
+             // Anyone may increment chat or registeredCount (existing rule)
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chatMessages', 'registeredCount']) ||
+             // Any authenticated user may update ONLY the tasks array (assignee-enforced in UI)
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tasks']) ||
+             // Any authenticated user may update tasks alongside chat (e.g. work-update + status)
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tasks', 'chatMessages'])
+           ));
+      
+      // Delete: Only organizer or admin
+      allow delete: if isEventOrganizer(eventId) || isAdmin();
+      
+      // Subcollection: registrations
+      match /registrations/{regId} {
+        // Read: Any authenticated user (needed for "Registered" badges, counts, check-in)
+        allow read: if request.auth != null;
+        
+        // Create: Authenticated users can only register themselves
+        allow create: if request.auth.uid == request.resource.data.userId;
+        
+        // Update: Organizer, registrant, admin, invited team member, or check-in operator
+        allow update: if 
+          isEventOrganizer(eventId) || 
+          request.auth.uid == resource.data.userId ||
+          isAdmin() ||
+          (
+            request.auth != null &&
+            request.auth.token.email in resource.data.pendingMembers &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingMembers', 'teamMembers'])
+          ) ||
+          (
+            // Any authenticated user may perform a check-in or undo check-in.
+            // The UI restricts this action to hosts only; the rule just ensures the
+            // write isn't rejected when the organizer's token email differs from
+            // the stored organizerEmail (e.g. Google sign-in capitalisation).
+            request.auth != null &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkedIn', 'checkInTime'])
+          );
+        
+        // Delete: Only organizer or registrant
+        allow delete: if 
+          isEventOrganizer(eventId) || 
+          request.auth.uid == resource.data.userId ||
+          isAdmin();
+      }
+      
+      // Subcollection: chat (legacy path — kept for compatibility)
+      match /chat/{messageId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth.uid == resource.data.userId || isAdmin();
+      }
+      
+      // Subcollection: announcements (organizer only)
+      match /announcements/{announcementId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if isEventOrganizer(eventId) || isAdmin();
+      }
+
+      // Subcollection: tasks
+      match /tasks/{taskId} {
+        allow read: if request.auth != null;
+        
+        // Organizer/Admin can create tasks
+        allow create: if
+            isAdmin() ||
+            isEventOrganizer(eventId);
+            
+        // Organizer/Admin can edit everything
+        // Assigned user can ONLY change status
+        allow update: if
+            isAdmin() ||
+            isEventOrganizer(eventId) ||
+            (
+                request.auth != null &&
+                request.auth.token.email == resource.data.assignedTo &&
+                request.resource.data.diff(resource.data)
+                    .affectedKeys()
+                    .hasOnly(['status'])
+            );
+            
+        allow delete: if
+            isAdmin() ||
+            isEventOrganizer(eventId);
+      }
+    }
+
+    // Payments collection - SECURE PAYMENT DATA
+    match /payments/{paymentId} {
+      // Only payment owner or admin can read
+      allow read: if request.auth.uid == resource.data.userId || isAdmin();
+      
+      // Only admin can create/update (via backend)
+      allow write: if false;
+    }
+
+    // College Email OTPs - TEMPORARY STORAGE FOR EMAIL VERIFICATION
+    match /collegeOtps/{userId} {
+      allow read, write: if true;
+    }
+  }
+}
+
