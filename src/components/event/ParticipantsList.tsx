@@ -1,0 +1,217 @@
+"use client"
+
+import { MainEvent, Registration } from "@/lib/events-context"
+import { GlassCard } from "@/components/ui/GlassCard"
+import { MicroLabel } from "@/components/ui/MicroLabel"
+import { Button } from "@/components/ui/button"
+import { Download, Users, BadgeCheck, Clock, ExternalLink, Phone } from "lucide-react"
+import { useState } from "react"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db as getDb } from "@/lib/firebase"
+import { ParticipantDetailModal } from "./ParticipantDetailModal"
+
+interface Props {
+  event: MainEvent
+}
+
+export function ParticipantsList({ event }: Props) {
+  const [filterSe, setFilterSe] = useState("")
+  const [selectedReg, setSelectedReg] = useState<Registration | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Exclude DRAFT registrations — those are team invitation placeholders, not confirmed participants
+  const confirmedRegs = event.registrations.filter(r => r.status !== "DRAFT")
+
+  const regs = filterSe
+    ? confirmedRegs.filter(r => r.subEventId === filterSe)
+    : confirmedRegs
+
+  const downloadCSV = async () => {
+    setIsExporting(true)
+    try {
+      const maxTeamMembers = Math.max(...regs.map(r => (r.teamMembers && r.teamMembers.length > 1 ? r.teamMembers.length - 1 : 0)), 0)
+      
+      const headers = ["Name", "Email", "Phone", "Reg No", "Sub-Event", "Status", "Team Name", "Registered At", "Checked In"]
+      for (let i = 1; i <= maxTeamMembers; i++) {
+        headers.push(`Teammate ${i} Name`, `Teammate ${i} Email`, `Teammate ${i} Phone`, `Teammate ${i} Reg No`)
+      }
+
+      const rows = await Promise.all(regs.map(async r => {
+        const se = event.subEvents.find(s => s.id === r.subEventId)
+        
+        let captainRegNo = "—"
+        try {
+          const q = query(collection(getDb(), "users"), where("email", "==", r.userEmail))
+          const snap = await getDocs(q)
+          if (!snap.empty) {
+            captainRegNo = snap.docs[0].data().rollNo || "—"
+          }
+        } catch {}
+
+        const row = [
+          r.userName,
+          r.userEmail,
+          r.userPhone || "",
+          captainRegNo,
+          se?.name || "",
+          r.status,
+          r.teamName || "",
+          r.timestamp,
+          r.checkedIn ? "Yes" : "No",
+        ]
+
+        if (maxTeamMembers > 0) {
+          const teammateEmails = r.teamMembers && r.teamMembers.length > 1 ? r.teamMembers.slice(1) : []
+          for (let i = 0; i < maxTeamMembers; i++) {
+            if (i < teammateEmails.length) {
+              const email = teammateEmails[i]
+              try {
+                const q = query(collection(getDb(), "users"), where("email", "==", email))
+                const snap = await getDocs(q)
+                if (!snap.empty) {
+                  const data = snap.docs[0].data()
+                  row.push(data.name || "—", email, data.phone || "—", data.rollNo || "—")
+                } else {
+                  row.push("—", email, "—", "—")
+                }
+              } catch {
+                row.push("—", email, "—", "—")
+              }
+            } else {
+              row.push("", "", "", "") // Empty columns for this row if team is smaller than max
+            }
+          }
+        }
+        return row
+      }))
+
+      const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(",")).join("\n")
+      const blob = new Blob([csv], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${event.title.replace(/\s+/g, "_")}_participants.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  return (
+    <div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <GlassCard className="p-4 text-center">
+          <p className="text-[10px] font-mono text-[var(--color-text-faint)] tracking-widest uppercase mb-1">Total</p>
+          <p className="text-2xl font-light">{confirmedRegs.length}</p>
+        </GlassCard>
+        <GlassCard className="p-4 text-center">
+          <p className="text-[10px] font-mono text-[var(--color-text-faint)] tracking-widest uppercase mb-1">Pending</p>
+          <p className="text-2xl font-light text-yellow-400">{confirmedRegs.filter(r => r.status === "PENDING").length}</p>
+        </GlassCard>
+        <GlassCard className="p-4 text-center">
+          <p className="text-[10px] font-mono text-[var(--color-text-faint)] tracking-widest uppercase mb-1">Checked In</p>
+          <p className="text-2xl font-light">{confirmedRegs.filter(r => r.checkedIn).length}</p>
+        </GlassCard>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <MicroLabel className="mb-0">Participants ({regs.length})</MicroLabel>
+          <select
+            value={filterSe}
+            onChange={e => setFilterSe(e.target.value)}
+            className="h-7 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] text-[10px] font-mono rounded px-2"
+          >
+            <option value="">All Sub-Events</option>
+            {event.subEvents.map(se => (
+              <option key={se.id} value={se.id}>{se.name}</option>
+            ))}
+          </select>
+        </div>
+        <Button onClick={downloadCSV} disabled={isExporting} variant="outline" className="h-8 px-4 text-[10px] font-mono border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] gap-1.5">
+          <Download className={`w-3.5 h-3.5 ${isExporting ? "animate-pulse" : ""}`} /> {isExporting ? "Exporting..." : "Export CSV"}
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-[var(--color-surface-2)] text-[var(--color-text-muted)]">
+              <th className="text-left p-3 text-[10px] font-mono tracking-widest">#</th>
+              <th className="text-left p-3 text-[10px] font-mono tracking-widest">Participant</th>
+              <th className="text-left p-3 text-[10px] font-mono tracking-widest">Phone</th>
+              <th className="text-left p-3 text-[10px] font-mono tracking-widest">Sub-Event</th>
+              <th className="text-left p-3 text-[10px] font-mono tracking-widest">Team</th>
+              <th className="text-left p-3 text-[10px] font-mono tracking-widest">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {regs.length === 0 ? (
+              <tr><td colSpan={6} className="p-8 text-center text-[var(--color-text-faint)] font-mono">No registrations yet</td></tr>
+            ) : regs.map((reg, i) => {
+              const se = event.subEvents.find(s => s.id === reg.subEventId)
+              return (
+                <tr
+                  key={reg.id}
+                  onClick={() => {
+                    setSelectedReg(reg)
+                    setModalOpen(true)
+                  }}
+                  className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-3)] transition-colors cursor-pointer"
+                >
+                  <td className="p-3 text-[var(--color-text-faint)] font-mono text-xs">{i + 1}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-[var(--color-surface-3)] flex items-center justify-center text-[10px] font-mono text-[var(--color-text-faint)]">
+                        {reg.userName[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-text)]">{reg.userName}</p>
+                        <p className="text-[10px] font-mono text-[var(--color-text-faint)]">{reg.userEmail}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    {reg.userPhone ? (
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                        <Phone className="w-3 h-3 text-[var(--color-text-faint)]" />
+                        <span className="font-mono">{reg.userPhone}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] font-mono text-[var(--color-text-faint)]">—</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-[var(--color-text-muted)] text-xs">{se?.name}</td>
+                  <td className="p-3">
+                    {reg.teamName ? (
+                      <div>
+                        <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1"><Users className="w-3 h-3" />{reg.teamName}</p>
+                        {reg.teamMembers && reg.teamMembers.length > 1 && (
+                          <p className="text-[10px] font-mono text-[var(--color-text-faint)]">{reg.teamMembers.length} members</p>
+                        )}
+                      </div>
+                    ) : <span className="text-[10px] font-mono text-[var(--color-text-faint)]">Solo</span>}
+                  </td>
+                  <td className="p-3 text-[10px] font-mono text-[var(--color-text-faint)]">{reg.timestamp}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Participant Detail Modal */}
+      <ParticipantDetailModal 
+        reg={selectedReg} 
+        event={event} 
+        isOpen={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+      />
+    </div>
+  )
+}
