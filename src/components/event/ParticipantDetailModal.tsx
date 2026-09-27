@@ -14,7 +14,7 @@ interface ParticipantUser {
   name: string
   email: string
   college: string
-  rollNo: string
+  regNo: string
   department: string
   year: string
   phone: string
@@ -66,7 +66,7 @@ export function ParticipantDetailModal({ reg, event, isOpen, onClose }: Props) {
           const profiles = await Promise.all(
             teammateEmails.map(async (email) => {
               const data = await fetchByEmail(email)
-              return data ?? ({ email, name: email.split("@")[0], college: "—", department: "—", year: "—", phone: "—", rollNo: "—" } as unknown as ParticipantUser)
+              return data ?? ({ email, name: email.split("@")[0], college: "—", department: "—", year: "—", phone: "—", regNo: "—" } as unknown as ParticipantUser)
             })
           )
           setTeammateDetails(profiles)
@@ -191,9 +191,9 @@ export function ParticipantDetailModal({ reg, event, isOpen, onClose }: Props) {
                     <GlassCard className="p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Trophy className="w-4 h-4 text-[var(--color-text-faint)]" />
-                        <p className="text-[10px] font-mono text-[var(--color-text-faint)] tracking-widest uppercase">Roll No</p>
+                        <p className="text-[10px] font-mono text-[var(--color-text-faint)] tracking-widest uppercase">Reg No</p>
                       </div>
-                      <p className="text-sm text-[var(--color-text)] font-mono">{userDetails.rollNo || "—"}</p>
+                      <p className="text-sm text-[var(--color-text)] font-mono">{userDetails.regNo || "—"}</p>
                     </GlassCard>
                   </div>
                 </div>
@@ -266,7 +266,7 @@ export function ParticipantDetailModal({ reg, event, isOpen, onClose }: Props) {
                           </div>
                           <div className="min-w-0">
                             <p className="text-[10px] font-mono text-[var(--color-text-faint)] uppercase tracking-wider mb-1">Reg No</p>
-                            <p className="text-sm text-[var(--color-text)]">{tm.rollNo || "—"}</p>
+                            <p className="text-sm text-[var(--color-text)]">{tm.regNo || "—"}</p>
                           </div>
                         </div>
                       </div>

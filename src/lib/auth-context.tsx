@@ -60,7 +60,7 @@ export interface User {
   email: string
   role: UserRole
   college: string
-  rollNo: string
+  regNo: string
   department: string
   year: string
   phone: string
@@ -117,7 +117,7 @@ interface SignupData {
   password: string
   role: UserRole
   college: string
-  rollNo: string
+  regNo: string
   department: string
   year: string
   phone: string
@@ -233,6 +233,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               friendRequestsIn: data.friendRequestsIn || [],
               friendRequestsOut: data.friendRequestsOut || [],
               friends: data.friends || [],
+              // Backward-compat: read regNo; fall back to legacy rollNo field until migration is run
+              regNo: data.regNo ?? data.rollNo ?? "",
             } as User
             setUser(profile)
           } else {
@@ -310,7 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         role: data.role,
         college: data.college,
-        rollNo: data.rollNo,
+        regNo: data.regNo,
         department: data.department,
         year: data.year,
         phone: data.phone || "",
@@ -406,7 +408,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: cred.user.email || "",
         role: "student",
         college: "",
-        rollNo: "",
+        regNo: "",
         department: "",
         year: "",
         phone: cred.user.phoneNumber || "",

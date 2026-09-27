@@ -115,7 +115,7 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("")
   const [college, setCollege] = useState("")
   const [department, setDepartment] = useState("")
-  const [rollNo, setRollNo] = useState("")
+  const [regNo, setRegNo] = useState("")
   const [year, setYear] = useState("")
   const [saved, setSaved] = useState(false)
 
@@ -143,7 +143,7 @@ export default function ProfilePage() {
       setBio(user.bio || "")
       setCollege(user.college || "")
       setDepartment(user.department || "")
-      setRollNo(user.rollNo || "")
+      setRegNo(user.regNo || "")
       setYear(user.year || "")
     }
   }, [user, authLoading, router])
@@ -197,12 +197,12 @@ export default function ProfilePage() {
   const isFaculty = user.year === "Faculty/Staff" || user.year === "Faculty"
   const phoneDigits = phone.replace(/\D/g, "")
   const isPhoneValid = phoneDigits.length === 10
-  const canSave = name.trim() && isPhoneValid && college.trim() && department.trim() && year.trim() && (isFaculty || rollNo.trim())
+  const canSave = name.trim() && isPhoneValid && college.trim() && department.trim() && year.trim() && (isFaculty || regNo.trim())
 
   const handleSave = () => {
     if (hasActiveRegistration) return
     if (!canSave) return
-    updateProfile({ name, phone, bio, college, department, rollNo, year })
+    updateProfile({ name, phone, bio, college, department, regNo, year })
     setSaved(true)
     setTimeout(() => { setSaved(false); setIsEditing(false) }, 1500)
   }
@@ -444,13 +444,13 @@ export default function ProfilePage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Roll Number {!isFaculty && <span className="text-red-400">*</span>}</label>
+                    <label className={labelCls}>Register Number {!isFaculty && <span className="text-red-400">*</span>}</label>
                     {isFaculty ? (
                       <div className={`${readonlyCls} text-[var(--color-text-faint)] italic font-mono`}>Not applicable</div>
                     ) : isEditing ? (
-                      <Input value={rollNo} onChange={e => setRollNo(e.target.value)} className={inputCls} />
+                      <Input value={regNo} onChange={e => setRegNo(e.target.value)} className={inputCls} />
                     ) : (
-                      <div className={readonlyCls}>{user.rollNo || <span className="text-[var(--color-text-faint)]">Not set</span>}</div>
+                      <div className={readonlyCls}>{user.regNo || <span className="text-[var(--color-text-faint)]">Not set</span>}</div>
                     )}
                   </div>
                   <div>

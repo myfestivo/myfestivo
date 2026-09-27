@@ -45,7 +45,8 @@ export function ParticipantsList({ event }: Props) {
           const q = query(collection(getDb(), "users"), where("email", "==", r.userEmail))
           const snap = await getDocs(q)
           if (!snap.empty) {
-            captainRegNo = snap.docs[0].data().rollNo || "—"
+            // Backward-compat: read regNo; fall back to legacy rollNo until migration is run
+            captainRegNo = snap.docs[0].data().regNo || snap.docs[0].data().rollNo || "—"
           }
         } catch {}
 
@@ -71,7 +72,8 @@ export function ParticipantsList({ event }: Props) {
                 const snap = await getDocs(q)
                 if (!snap.empty) {
                   const data = snap.docs[0].data()
-                  row.push(data.name || "—", email, data.phone || "—", data.rollNo || "—")
+                  // Backward-compat: read regNo; fall back to legacy rollNo until migration is run
+                  row.push(data.name || "—", email, data.phone || "—", data.regNo || data.rollNo || "—")
                 } else {
                   row.push("—", email, "—", "—")
                 }

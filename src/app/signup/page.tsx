@@ -28,7 +28,7 @@ export default function SignupPage() {
     confirmPassword: "",
     role: "student" as const,
     college: "",
-    rollNo: "",
+    regNo: "",
     department: "",
     year: "1st Year",
     phone: "",
@@ -102,8 +102,8 @@ export default function SignupPage() {
     }
 
     const isFacultySubmit = form.year === "Faculty/Staff"
-    if (!isFacultySubmit && !form.rollNo.trim()) {
-      setError("Please enter your roll number")
+    if (!isFacultySubmit && !form.regNo.trim()) {
+      setError("Please enter your register number")
       return
     }
 
@@ -158,7 +158,7 @@ export default function SignupPage() {
         password: form.password,
         role: form.role,
         college: form.college,
-        rollNo: form.year === "Faculty/Staff" ? "" : form.rollNo,
+        regNo: form.year === "Faculty/Staff" ? "" : form.regNo,
         department: form.department,
         year: form.year,
         phone: form.phone.replace(/\D/g, ""),
@@ -438,15 +438,15 @@ export default function SignupPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="rollNo" className="text-[11px] font-mono tracking-widest uppercase text-[var(--color-text-muted)] mb-2 block">
-                      Roll Number {form.year !== "Faculty/Staff" && <span className="text-red-400">*</span>}
+                    <label htmlFor="regNo" className="text-[11px] font-mono tracking-widest uppercase text-[var(--color-text-muted)] mb-2 block">
+                      Register Number {form.year !== "Faculty/Staff" && <span className="text-red-400">*</span>}
                     </label>
                     {form.year === "Faculty/Staff" ? (
                       <div className="h-11 px-3 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-faint)] text-sm flex items-center font-mono italic">
                         Not applicable
                       </div>
                     ) : (
-                      <Input id="rollNo" value={form.rollNo} onChange={(e) => update("rollNo", e.target.value)} placeholder="RA2211003010001" className="bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] h-11" required />
+                      <Input id="regNo" value={form.regNo} onChange={(e) => update("regNo", e.target.value)} placeholder="RA2211003010001" className="bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] h-11" required />
                     )}
                   </div>
                   <div>
