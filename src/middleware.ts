@@ -2,10 +2,7 @@
  * middleware.ts — Next.js Middleware (runs on Cloudflare Workers edge via OpenNext)
  *
  * Replaces the former netlify/edge-functions/rate-limiter.ts.
- * On Cloudflare, rate limiting is handled by native Workers Rate Limiting bindings
- * (RATE_LIMIT_AUTH, RATE_LIMIT_SENSITIVE, RATE_LIMIT_STANDARD) declared in wrangler.toml.
- *
- * Fallback: if the bindings are absent (local dev), the middleware is a no-op pass-through.
+ * Cloudflare bindings are accessed via getCloudflareContext() from @opennextjs/cloudflare.
  *
  * Rate groups — mirroring Rate limiting.md:
  *   SENSITIVE  (/api/email/signup-otp, /api/auth/send-college-otp,
@@ -14,19 +11,19 @@
  *               /api/auth/check-provider)                            → 10 / 60 s
  *   STANDARD   (all other /api/*)                                   → 100 / 60 s
  *
- * Client IP is read from cf-connecting-ip (set by Cloudflare's network) with
- * fallback to x-forwarded-for for local dev compatibility.
+ * In local dev (next dev), bindings are absent so middleware is a no-op pass-through.
+ * In production (Cloudflare Workers), bindings are resolved from wrangler.toml.
  */
 
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 
 // ─── Binding type (Cloudflare Workers Rate Limiting API) ─────────────────────
 interface RateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>
 }
 
-// Extended env — injected by OpenNext from wrangler.toml bindings
 interface CloudflareEnv {
   RATE_LIMIT_AUTH?: RateLimiter
   RATE_LIMIT_SENSITIVE?: RateLimiter
@@ -47,17 +44,13 @@ const AUTH_PREFIXES = [
   "/api/auth/check-provider",
 ]
 
-function getLimiter(
-  path: string,
-  env: CloudflareEnv
-): RateLimiter | null {
+function getLimiter(path: string, env: CloudflareEnv): RateLimiter | null {
   if (SENSITIVE_PREFIXES.some((p) => path.startsWith(p))) {
     return env.RATE_LIMIT_SENSITIVE ?? null
   }
   if (AUTH_PREFIXES.some((p) => path.startsWith(p))) {
     return env.RATE_LIMIT_AUTH ?? null
   }
-  // Everything else under /api/* → standard
   return env.RATE_LIMIT_STANDARD ?? null
 }
 
@@ -65,17 +58,21 @@ function getLimiter(
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
-  // Extract Cloudflare env bindings injected by OpenNext
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cfEnv = (request as any).cf?.env as CloudflareEnv | undefined
+  // getCloudflareContext() is only available when running inside a CF Worker.
+  // It throws in local `next dev` — catch it and pass through.
+  let env: CloudflareEnv
+  try {
+    const ctx = await getCloudflareContext({ async: true })
+    env = ctx.env as CloudflareEnv
+  } catch {
+    // Not running on Cloudflare (local dev) — skip rate limiting
+    return NextResponse.next()
+  }
 
-  // If bindings are absent (local dev / non-Cloudflare), pass through
-  if (!cfEnv) return NextResponse.next()
-
-  const limiter = getLimiter(path, cfEnv)
+  const limiter = getLimiter(path, env)
   if (!limiter) return NextResponse.next()
 
-  // Prefer Cloudflare's verified IP header; fall back to x-forwarded-for for dev
+  // cf-connecting-ip is Cloudflare's verified client IP (always set in Workers)
   const ip =
     request.headers.get("cf-connecting-ip") ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
