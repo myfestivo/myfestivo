@@ -1,0 +1,79 @@
+# wrangler.toml — Cloudflare Workers deployment configuration for MyFestivo
+# Used by @opennextjs/cloudflare to build & deploy via Wrangler.
+# Reference: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "myfestivo"
+main = ".open-next/worker.js"
+
+# Use a date >= 2024-09-23 for full Node.js compat + firebase-admin support
+compatibility_date = "2026-03-01"
+
+# nodejs_compat is required for firebase-admin, crypto, nodemailer, etc.
+compatibility_flags = ["nodejs_compat"]
+
+# ─── Static Assets ────────────────────────────────────────────────────────────
+# OpenNext emits static assets here; Cloudflare serves them from the CDN edge.
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# ─── Rate Limiting ────────────────────────────────────────────────────────────
+# Native Cloudflare Workers Rate Limiting API bindings.
+# These use a fixed-window algorithm scoped to per-IP per route group.
+# namespace_id values must be unique integers within your account.
+# Create the namespaces in the Cloudflare dashboard under Workers → Rate Limiting.
+#
+# Limits defined here mirror the thresholds in Rate limiting.md:
+#   Auth endpoints (check-provider, forgot-password): 10 req / 60 s
+#   Sensitive actions (OTP, payments):                 5 req / 60 s
+#   Standard API (email routes, fallback):           100 req / 60 s
+#
+# NOTE: Replace namespace_id values with real IDs from your Cloudflare dashboard
+#       before deploying to production.
+
+[[ratelimits]]
+name = "RATE_LIMIT_AUTH"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[[ratelimits]]
+name = "RATE_LIMIT_SENSITIVE"
+namespace_id = "1002"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+[[ratelimits]]
+name = "RATE_LIMIT_STANDARD"
+namespace_id = "1003"
+[ratelimits.simple]
+limit = 100
+period = 60
+
+# ─── Environment Variables ────────────────────────────────────────────────────
+# Secrets (GMAIL_APP_PASSWORD, RAZORPAY_KEY_SECRET, FIREBASE_ADMIN_PRIVATE_KEY)
+# must be set via:  npx wrangler secret put <NAME>
+# Non-secret vars can be placed in [vars] below OR in the Cloudflare dashboard.
+#
+# Required variables (set via dashboard or `wrangler secret put`):
+#   NEXT_PUBLIC_FIREBASE_API_KEY
+#   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+#   NEXT_PUBLIC_FIREBASE_PROJECT_ID
+#   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+#   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+#   NEXT_PUBLIC_FIREBASE_APP_ID
+#   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+#   FIREBASE_ADMIN_PROJECT_ID
+#   FIREBASE_ADMIN_CLIENT_EMAIL
+#   FIREBASE_ADMIN_PRIVATE_KEY   (multi-line PEM -- use `wrangler secret put`)
+#   GMAIL_EMAIL
+#   GMAIL_APP_PASSWORD           (use `wrangler secret put`)
+#   RAZORPAY_KEY_SECRET          (use `wrangler secret put`)
+#   NEXT_PUBLIC_RAZORPAY_KEY_ID
+#   NEXT_PUBLIC_APP_URL
+
+[vars]
+NODE_ENV = "production"
+NEXT_PUBLIC_APP_URL = "https://myfestivo.live"

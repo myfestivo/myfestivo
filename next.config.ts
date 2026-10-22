@@ -1,4 +1,11 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
+
+if (process.env.NODE_ENV === "development") {
+  // Initialises the Cloudflare bindings emulation layer during `next dev`
+  // so that middleware can access CF-specific APIs (rate limiters, KV, etc.)
+  await initOpenNextCloudflareForDev()
+}
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -10,8 +17,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   compress: true,
-  // These packages use native bindings or ESM internals — let Node.js load them
-  // directly instead of having Next.js bundle them through webpack.
+  // Prevent Next.js from bundling firebase-admin through webpack;
+  // the nodejs_compat Cloudflare Workers flag provides Node.js APIs directly.
   serverExternalPackages: ["firebase-admin"],
 
   images: {

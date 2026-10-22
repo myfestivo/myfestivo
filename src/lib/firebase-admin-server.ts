@@ -32,7 +32,9 @@ async function getAdminApp(): Promise<App> {
     throw new Error(
       '[firebase-admin-server] Missing environment variables. ' +
       'Please set FIREBASE_ADMIN_CLIENT_EMAIL and FIREBASE_ADMIN_PRIVATE_KEY ' +
-      '(and NEXT_PUBLIC_FIREBASE_PROJECT_ID if not already set) in your .env.local and Netlify settings.'
+      '(and NEXT_PUBLIC_FIREBASE_PROJECT_ID if not already set) ' +
+      'in your .env.local for development, or via `npx wrangler secret put` / ' +
+      'the Cloudflare Workers dashboard for production.'
     )
   }
 
