@@ -1,11 +1,9 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
 
-if (process.env.NODE_ENV === "development") {
-  // Initialises the Cloudflare bindings emulation layer during `next dev`
-  // so that middleware can access CF-specific APIs (rate limiters, KV, etc.)
-  await initOpenNextCloudflareForDev()
-}
+// Initialises the Cloudflare bindings emulation layer during `next dev`
+// so that middleware can access CF-specific APIs (rate limiters, KV, etc.)
+void initOpenNextCloudflareForDev();
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },

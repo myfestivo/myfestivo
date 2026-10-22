@@ -269,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     const authInstance = getAuthInstance()
-    if (!authInstance) throw new Error("Firebase is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Netlify Site Settings and trigger a new deploy.")
+    if (!authInstance) throw new Error("Firebase is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Cloudflare Dashboard (Variables and Secrets) and trigger a new deploy.")
     // Pre-flight: check if this email belongs to a Google account (uses Admin SDK — covers legacy users)
     const provider = await checkEmailAuthProvider(email)
     if (provider === 'google') {
@@ -296,9 +296,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (data: SignupData): Promise<boolean> => {
     const authInstance = getAuthInstance()
-    if (!authInstance) throw new Error("Firebase is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Netlify Site Settings and trigger a new deploy.")
+    if (!authInstance) throw new Error("Firebase is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Cloudflare Dashboard (Variables and Secrets) and trigger a new deploy.")
     const db = getDb()
-    if (!db) throw new Error("Firebase Firestore is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Netlify Site Settings and trigger a new deploy.")
+    if (!db) throw new Error("Firebase Firestore is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Cloudflare Dashboard (Variables and Secrets) and trigger a new deploy.")
     // Pre-flight: check if this email is already registered via Google (uses Admin SDK — covers legacy users)
     const provider = await checkEmailAuthProvider(data.email)
     if (provider === 'google') {
@@ -381,9 +381,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (): Promise<boolean> => {
     const authInstance = getAuthInstance()
-    if (!authInstance) throw new Error("Firebase is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Netlify Site Settings and trigger a new deploy.")
+    if (!authInstance) throw new Error("Firebase is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Cloudflare Dashboard (Variables and Secrets) and trigger a new deploy.")
     const db = getDb()
-    if (!db) throw new Error("Firebase Firestore is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Netlify Site Settings and trigger a new deploy.")
+    if (!db) throw new Error("Firebase Firestore is not configured. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are added to Cloudflare Dashboard (Variables and Secrets) and trigger a new deploy.")
     try {
       const cred = await signInWithPopup(authInstance, googleProvider)
       const existing = await fetchUserProfile(cred.user.uid)

@@ -347,30 +347,33 @@ export function EventsProvider({ children, authReady, authUid }: EventsProviderP
         })
         latestEvtDocs = fetched
 
-        // Subscribe to registrations subcollection for any new events
-        fetched.forEach(evt => {
-          if (regUnsubs[evt.id]) return // already subscribed
-          try {
-            const regCol = getRegsCol(evt.id)
-            const unsub = onSnapshot(regCol, (regSnap) => {
-              const regs: Registration[] = regSnap.docs.map(rd => ({ ...rd.data(), id: rd.id } as Registration))
-              regsByEventRef.current = { ...regsByEventRef.current, [evt.id]: regs }
-              // Re-merge, update state, AND persist to cache so reloads see registrations
-              setEvents(prev => {
-                const next = prev.map(e => e.id === evt.id ? { ...e, registrations: regs } : e)
-                try {
-                  localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify(eventsForCache(next)))
-                } catch {}
-                return next
+        // Subscribe to registrations subcollection for any new events (authenticated users only)
+        // Unauthenticated visitors do not have read permission for registrations (per firestore.rules)
+        if (authUid) {
+          fetched.forEach(evt => {
+            if (regUnsubs[evt.id]) return // already subscribed
+            try {
+              const regCol = getRegsCol(evt.id)
+              const unsub = onSnapshot(regCol, (regSnap) => {
+                const regs: Registration[] = regSnap.docs.map(rd => ({ ...rd.data(), id: rd.id } as Registration))
+                regsByEventRef.current = { ...regsByEventRef.current, [evt.id]: regs }
+                // Re-merge, update state, AND persist to cache so reloads see registrations
+                setEvents(prev => {
+                  const next = prev.map(e => e.id === evt.id ? { ...e, registrations: regs } : e)
+                  try {
+                    localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify(eventsForCache(next)))
+                  } catch {}
+                  return next
+                })
+              }, (err) => {
+                console.error(`[EventsProvider] Registrations listener error for event ${evt.id}:`, err)
               })
-            }, (err) => {
-              console.error(`[EventsProvider] Registrations listener error for event ${evt.id}:`, err)
-            })
-            regUnsubs[evt.id] = unsub
-          } catch (e) {
-            console.error(`[EventsProvider] Failed to subscribe to registrations for ${evt.id}`, e)
-          }
-        })
+              regUnsubs[evt.id] = unsub
+            } catch (e) {
+              console.error(`[EventsProvider] Failed to subscribe to registrations for ${evt.id}`, e)
+            }
+          })
+        }
 
         setEvents(mergeRegistrations(fetched))
         setIsLoading(false)
