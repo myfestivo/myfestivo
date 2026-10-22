@@ -74,6 +74,11 @@ period = 60
 #   NEXT_PUBLIC_RAZORPAY_KEY_ID
 #   NEXT_PUBLIC_APP_URL
 
-[vars]
-NODE_ENV = "production"
-NEXT_PUBLIC_APP_URL = "https://myfestivo.live"
+# ─── Environment Variables ────────────────────────────────────────────────────
+# All environment variables and secrets are managed in the Cloudflare Dashboard
+# under Settings → Variables and Secrets (or via `npx wrangler secret put`).
+# Do NOT define a [vars] block here, as Wrangler would wipe any dashboard variables
+# not declared in it.
+
+
+
